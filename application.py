@@ -13,6 +13,9 @@ import sys
 #Init est utilisé pour l'ajout de coleur dans le code
 init()
 
+# Répertoire de base sécurisé pour les fichiers
+FILES_DIR = Path(__file__).parent / "files"
+
 #Permet de définir l'application Flask
 app = Flask(__name__)
 
@@ -59,16 +62,42 @@ def uploaded():
                 return render_template('error.html', err=err)
             else:
                 print(f"{Fore.GREEN}[+] file uploded ! {file_name}{Fore.RESET}")
-                path = f'{Path(__file__).parent}'
-                path_full_write = f"{path}\\files\{file_name}"
+                try:
+                    # chemin sécurisé dans le répertoire FILES_DIR
+                    safe_path = get_safe_file_path(file_name)
+                except ValueError as e:
+                    err = str(e)
+                    return render_template('error.html', err=err)
                 content = readfile(file_name)
-                writefile(path_full_write, content)
+                writefile(str(safe_path), content)
 
 
     return render_template('upload.html', file_content=file_content)
 
+def get_safe_file_path(file_name: str) -> Path:
+    """
+    Construit un chemin sécurisé pour le fichier dans FILES_DIR
+    et vérifie qu'il ne sort pas de ce répertoire.
+    """
+    # Construire le chemin à partir du répertoire de base
+    candidate = FILES_DIR / file_name
+    # Normaliser / résoudre le chemin sans exiger l'existence
+    try:
+        resolved = candidate.resolve(strict=False)
+    except FileNotFoundError:
+        # Pour Python <3.6 compatibilité, mais strict=False ne devrait pas lever
+        resolved = candidate
+    # Vérifier que le chemin est bien sous FILES_DIR
+    try:
+        resolved.relative_to(FILES_DIR)
+    except ValueError:
+        raise ValueError("Invalid filename")
+    return resolved
+
 def  readfile(file_name):
-    with open (file_name, "r") as fichier:
+    # Utiliser un chemin sécurisé basé sur FILES_DIR
+    safe_path = get_safe_file_path(file_name)
+    with open(safe_path, "r") as fichier:
         content = fichier.read()
     return content
 
