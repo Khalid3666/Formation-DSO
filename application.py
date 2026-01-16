@@ -150,8 +150,21 @@ def files():
 def view_file():
     filename = request.args.get('file')  # Paramètre `file` passé dans l'URL
     base_path = os.path.abspath('./files')  # Répertoire sécurisé
+
+    if not filename:
+        abort(400, description="Missing 'file' parameter")
+
     requested_path = os.path.abspath(os.path.join(base_path, filename))
 
+    # Vérifie que le chemin demandé reste dans le répertoire sécurisé
+    try:
+        common_path = os.path.commonpath([base_path, requested_path])
+    except ValueError:
+        # En cas de chemins sur des lecteurs différents (Windows, etc.)
+        abort(400, description="Invalid file path")
+
+    if common_path != base_path:
+        abort(403, description="Access to the requested file is not allowed")
 
     try:
         with open(requested_path, 'r') as file:
